@@ -5,10 +5,9 @@ const history = require('connect-history-api-fallback');
 const http = require('http');
 const jwtAuth = require('socketio-jwt-auth'); // 用于 JWT 验证的 socket.io 中间件
 const child_process = require('child_process'); // 子进程
+const { initApp }= require('./database/schema');
 
-const { getConfig } = require('./config');
-const config = getConfig();
-
+const { config } = require('./config');
 const api = require('./api');
 
 const app = express();
@@ -109,6 +108,7 @@ io.on('connection', function (socket) {
 });
 
 // 返回错误响应
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err.name === 'UnauthorizedError') { 
     // 验证错误  
@@ -122,7 +122,14 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Start server
-server.listen(process.env.PORT || 8888, () => {
-  console.log(`Express listening on http://[::]:${process.env.PORT || 8888}`)
+initApp().catch(err => console.error(err));
+
+let listenPort = 8888;
+if (config.listenPort) {
+  listenPort = config.listenPort;
+}
+listenPort = process.env.PORT || listenPort;
+
+server.listen(listenPort, () => {
+  console.log(`Express listening on http://[::]:${listenPort}`)
 });
