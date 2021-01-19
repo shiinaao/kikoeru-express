@@ -72,6 +72,7 @@ npm start
 - [x] 进度标记页面
 - [x] 用户评价
 - [x] 修复面条代码里的placeholders
+- [ ] 升级sqlite等
 - [ ] 整理路由等
 - [ ] 单元测试、CI
 - [ ] Insersection Observer
