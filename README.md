@@ -73,12 +73,15 @@ npm start
 - [x] 用户评价
 - [x] 修复面条代码里的placeholders
 - [ ] 整理路由等
+- [ ] 单元测试、CI
 - [ ] Insersection Observer
 - [ ] 可编辑标签
+- [ ] 重新扫描
 - [ ] Dark Mode
 - [ ] 重构WorkCard和WorkDetail
 - [x] 检查启用foreign key是否会出错
 - [ ] 重构config和schema，添加多用户支持（目前实际上仍然是单用户架构）
+- [ ] 重构鉴权逻辑, cookie, CSRF
 - [x] Knex error catch
 - [x] 写迁移脚本
 - [x] 重写创建数据库逻辑（与迁移脚本冲突了）
