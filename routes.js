@@ -47,7 +47,8 @@ router.get('/tracks/:id', (req, res, next) => {
       const rootFolder = config.rootFolders.find(rootFolder => rootFolder.name === work.root_folder);
       if (rootFolder) {
         getTrackList(req.params.id, path.join(rootFolder.path, work.dir))
-          .then(tracks => res.send(toTree(tracks, work.title)));
+          .then(tracks => res.send(toTree(tracks, work.title)))
+          .catch(() => res.status(500).send({error: '获取文件列表失败，请检查文件是否存在或重新扫描清理'}));
       } else {
         res.status(500).send({error: `找不到文件夹: "${work.root_folder}"，请尝试重启服务器或重新扫描.`});
       }
@@ -146,6 +147,7 @@ router.get('/check-lrc/:id/:index', (req, res, next) => {
 });
 
 // GET list of work ids
+// eslint-disable-next-line no-unused-vars
 router.get('/works', async (req, res, next) => {
   const currentPage = parseInt(req.query.page) || 1;
   // 通过 "音声id, 贩卖日, 评价, 用户评价, 售出数, 评论数量, 价格, 平均评价, 全年龄新作， 评价" 排序
@@ -183,7 +185,8 @@ router.get('/works', async (req, res, next) => {
     });
   } catch(err) {
     res.status(500).send({error: '查询过程中出错'});
-    next(err);
+    console.error(err)
+    // next(err);
   }
 });
 

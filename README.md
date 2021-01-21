@@ -72,7 +72,11 @@ npm start
 - [x] 进度标记页面
 - [x] 用户评价
 - [x] 修复面条代码里的placeholders
-- [ ] 升级sqlite等
+- [x] 升级sqlite等
+- [ ] 刷新元数据
+- [x] 不清理作品
+- [x] 修复扫描阻塞
+- [ ] 使用ID标识文件夹
 - [ ] 整理路由等
 - [ ] 单元测试、CI
 - [ ] Insersection Observer
@@ -81,6 +85,7 @@ npm start
 - [ ] Dark Mode
 - [ ] 重构WorkCard和WorkDetail
 - [x] 检查启用foreign key是否会出错
+- [ ] 导入导出评价、进度
 - [ ] 重构config和schema，添加多用户支持（目前实际上仍然是单用户架构）
 - [ ] 重构鉴权逻辑, cookie, CSRF
 - [x] Knex error catch
