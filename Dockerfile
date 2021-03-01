@@ -12,7 +12,7 @@ RUN apk update && apk add python make gcc g++ && npm ci --only=production
 # If you are building your code for production
 # RUN npm ci --only=production
 
-FROM node:14-alpine
+FROM keymetrics/pm2:14-alpine
 
 ENV IS_DOCKER=true
 
@@ -27,11 +27,11 @@ COPY . .
 RUN find /usr/src/kikoeru/dist -type d -exec chmod 755 {} \; && find /usr/src/kikoeru/dist -type f -exec chmod 644 {} \;
 
 # Tini
-RUN apk add --no-cache tini
-ENTRYPOINT ["/sbin/tini", "--"]
+#RUN apk add --no-cache tini
+#ENTRYPOINT ["/sbin/tini", "--"]
 
 # 持久化
 VOLUME [ "/usr/src/kikoeru/sqlite", "/usr/src/kikoeru/config", "/usr/src/kikoeru/covers"]
 
 EXPOSE 8888
-CMD [ "node", "app.js" ]
+CMD ["pm2-runtime", "start", "pm2.json"]

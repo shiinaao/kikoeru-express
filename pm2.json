@@ -1,0 +1,10 @@
+{
+  "name": "kikoeru",
+  "script": "app.js",
+  "instances": 4,
+  "exec_mode": "cluster",
+  "env": {
+    "production": true,
+    "NODE_ENV": "production"
+  }
+}
