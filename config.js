@@ -41,6 +41,7 @@ const defaultConfig = {
   dbUseDefaultPath: true, // Ignores databaseFolderDir if set to true
   voiceWorkDefaultPath: voiceWorkDefaultPath(),
   auth: false,
+  publicRegistration: false,
   md5secret: stringRandom(14),
   jwtsecret: stringRandom(14),
   expiresIn: 2592000,

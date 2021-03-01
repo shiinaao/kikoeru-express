@@ -52,11 +52,65 @@ if (config.auth) {
 // eslint-disable-next-line no-unused-vars
 router.get('/me', (req, res, next) => {
   // 同时告诉客户端，服务器是否启用用户验证
+  const reg = config.publicRegistration;
   const auth = config.auth;
   const user = config.auth
     ? { name: req.user.name, group: req.user.group }
     : { name: 'admin', group: 'administrator' }
-  res.send({ user, auth });
+  res.send({ user, auth, reg });
 });
+
+// 创建一个新用户
+router.get("/reg", (req, res) => {
+    const reg = config.publicRegistration;
+    res.send({reg});
+})
+if (config.publicRegistration) {
+  router.post('/reg', [
+    check('name')
+        .isLength({min: 5})
+        .withMessage('用户名长度至少为 5'),
+    check('password')
+        .isLength({min: 5})
+        .withMessage('密码长度至少为 5'),
+  ], (req, res, next) => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(422).send({errors: errors.array()});
+    }
+
+    const user = {
+      name: req.body.name,
+      password: req.body.password,
+      group: "user"
+    };
+
+    db.createUser({
+      name: user.name,
+      password: md5(user.password),
+      group: user.group
+    })
+        .then(() => {
+            db.knex('t_user')
+                .where('name', '=', user.name)
+                .andWhere('password', '=', md5(user.password))
+                .first()
+                .then((user) => {
+                    const token = signtoken(user);
+                    res.send({token});
+                })
+        })
+        .catch((err) => {
+            if (err.message.indexOf('已存在') !== -1) {
+                res.status(403).send({error: err.message});
+            } else {
+                next(err);
+            }
+        });
+
+
+  });
+}
 
 module.exports = router;
