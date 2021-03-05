@@ -1,7 +1,7 @@
 ---
 name: 错误报告
 about: 请尽可能详细描述问题以帮助改进此项目
-title: "[Bug]"
+title: "[Bug] "
 labels: bug
 assignees: ''
 
