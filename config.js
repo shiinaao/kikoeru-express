@@ -26,6 +26,7 @@ const voiceWorkDefaultPath = () => {
 
 const defaultConfig = {
   version: pjson.version,
+  dbBusyTimeout: 1000,
   checkUpdate: true,
   checkBetaUpdate: false,
   maxParallelism: 16,
