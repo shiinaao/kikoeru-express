@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../database/db');
 const { getTrackList, toTree } = require('../filesystem/utils');
 const { config } = require('../config');
+const normalize = require('./utils/normalize')
 
 const PAGE_SIZE = config.pageSize || 12;
 
@@ -29,7 +30,12 @@ router.get('/work/:id', (req, res, next) => {
     username = req.user.name;
   }
   db.getWorkMetadata(req.params.id, username)
-    .then(work => res.send(work))
+    .then(work => {
+      // work is an Array of length 1
+      // db.getWorkMetadata(id, username) throws if nothing is found
+      normalize(work);
+      res.send(work[0]);
+    })
     .catch(err => next(err));
 });
 
@@ -81,6 +87,8 @@ router.get('/works', async (req, res, next) => {
       .orderBy([{ column: 'release', order: 'desc'}, { column: 'id', order: 'desc' }])
     }
 
+    works = normalize(works);
+    
     res.send({
       works,
       pagination: {
@@ -135,6 +143,8 @@ router.get('/search/:keyword?', async (req, res, next) => {
         .orderBy([{ column: 'release', order: 'desc'}, { column: 'id', order: 'desc' }])
     }
 
+    works = normalize(works);
+
     res.send({
       works,
       pagination: {
@@ -174,6 +184,8 @@ router.get('/:field/:id', async (req, res, next) => {
       works = await query().offset(offset).limit(PAGE_SIZE).orderBy(order, sort)
       .orderBy([{ column: 'release', order: 'desc'}, { column: 'id', order: 'desc' }])
     }
+
+    works = normalize(works);
 
     res.send({
       works,
