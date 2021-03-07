@@ -494,7 +494,7 @@ const deleteUserReview = (username, workid) => knex.transaction(trx => trx('t_re
   .del());
 
 // TODO 写migration
-const getWorksWithReviews = ({username = '', limit = 1000, offset = 0, orderBy = 'release', sortOption = 'desc', filter} = {}) => knex.transaction(async(trx) => {
+const getWorksWithReviews = async ({username = '', limit = 1000, offset = 0, orderBy = 'release', sortOption = 'desc', filter} = {}) => {
   // await trx.raw(
   //   `CREATE VIEW IF NOT EXISTS userMetadata AS
   //     SELECT t_work.id,
@@ -532,7 +532,7 @@ const getWorksWithReviews = ({username = '', limit = 1000, offset = 0, orderBy =
   
   let works = [];
   let totalCount = 0;
-  let query = () => trx('userMetadata').where('user_name', '=', username)
+  let query = () => knex('userMetadata').where('user_name', '=', username)
   .orderBy(orderBy, sortOption).orderBy([{ column: 'release', order: 'desc'}, { column: 'id', order: 'desc' }]);
 
   if (filter) {
@@ -552,7 +552,7 @@ const getWorksWithReviews = ({username = '', limit = 1000, offset = 0, orderBy =
   }
 
   return {works, totalCount};
-});
+};
 
 module.exports = {
   knex, insertWorkMetadata, getWorkMetadata, removeWork, getWorksBy, getWorksByKeyWord, updateWorkMetadata, getLabels,
