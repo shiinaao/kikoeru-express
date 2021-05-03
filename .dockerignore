@@ -3,6 +3,7 @@
 
 # Package
 package/*
+package-macos/*
 
 # Config
 config/*
@@ -24,3 +25,18 @@ VoiceWork
 # HTTPS
 kikoeru.crt
 kikoeru.key
+
+# Release template
+Release-Template.md
+
+# GitHub
+.github
+
+# Env
+.env
+
+# Use build artifact from muveex/kikoeru-quasar instead
+dist
+
+# GitHub Actions
+.github

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const recursiveReaddir = require('recursive-readdir');
 const { orderBy } = require('natural-orderby');
-
+const { joinFragments } = require('../routes/utils/url')
 const { config } = require('../config');
 
 /**
@@ -17,9 +17,10 @@ const getTrackList = (id, dir) => recursiveReaddir(dir)
     const filteredFiles = files.filter((file) => {
       const ext = path.extname(file);
 
-      return (ext === '.mp3' || ext === '.ogg' || ext === '.opus' || ext === '.wav' 
+      return (ext === '.mp3' || ext === '.ogg' || ext === '.opus' || ext === '.wav' || ext === '.aac'
         || ext === '.flac' || ext === '.webm' || ext === '.mp4'|| ext === '.m4a' 
         || ext === '.txt' || ext === '.lrc' || ext === '.srt' || ext === '.ass'
+        || ext === '.pdf'
         || ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.webp');
     });
 
@@ -54,7 +55,7 @@ const getTrackList = (id, dir) => recursiveReaddir(dir)
  * @param {Array} tracks 
  * @param {String} workTitle 
  */
-const toTree = (tracks, workTitle) => {
+const toTree = (tracks, workTitle, workDir, rootFolder) => {
   const tree = [];
 
   // 插入文件夹
@@ -73,35 +74,73 @@ const toTree = (tracks, workTitle) => {
       fatherFolder = fatherFolder.find(item => item.type === 'folder' && item.title === folderName).children;
     });
   });
-  
+
   // 插入文件
   tracks.forEach(track => {
     let fatherFolder = tree;
-    const path = track.subtitle ? track.subtitle.split('\\') : [];
-    path.forEach(folderName => {
+    const paths = track.subtitle ? track.subtitle.split('\\') : [];
+    paths.forEach(folderName => {
       fatherFolder = fatherFolder.find(item => item.type === 'folder' && item.title === folderName).children;
     });
+
+    // Path controlled by config.offloadMedia, config.offloadStreamPath and config.offloadDownloadPath
+    // If config.offloadMedia is enabled, by default, the paths are:
+    // /media/stream/VoiceWork/RJ123456/subdirs/track.mp3
+    // /media/download//VoiceWork/RJ123456/subdirs/track.mp3
+    //
+    // If the folder is deeper:
+    // /media/stream/VoiceWork/second/RJ123456/subdirs/track.mp3
+    // /media/download/VoiceWork/second/RJ123456/subdirs/track.mp3
+    let offloadStreamUrl = joinFragments(config.offloadStreamPath, rootFolder.name, workDir, track.subtitle || '', track.title);
+    let offloadDownloadUrl = joinFragments(config.offloadDownloadPath, rootFolder.name, workDir, track.subtitle || '', track.title);
+    if (process.platform === 'win32') {
+      offloadStreamUrl = offloadStreamUrl.replace(/\\/g, '/');
+      offloadDownloadUrl = offloadDownloadUrl.replace(/\\/g, '/');
+    }
+  
+    const textBaseUrl = '/api/media/stream/'
+    const mediaStreamBaseUrl = '/api/media/stream/'
+    const mediaDownloadBaseUrl = '/api/media/download/'
+    const textStreamBaseUrl = textBaseUrl + track.hash;    // Handle charset detection internally with jschardet
+    const textDownloadBaseUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
+    const mediaStreamUrl = config.offloadMedia ? offloadStreamUrl : mediaStreamBaseUrl + track.hash;
+    const mediaDownloadUrl = config.offloadMedia ? offloadDownloadUrl : mediaDownloadBaseUrl + track.hash;
 
     if (track.ext === '.txt' || track.ext === '.lrc' || track.ext === '.srt' || track.ext === '.ass') {
       fatherFolder.push({
         type: 'text',
         hash: track.hash,
         title: track.title,
-        workTitle
+        workTitle,
+        mediaStreamUrl: textStreamBaseUrl,
+        mediaDownloadUrl: textDownloadBaseUrl
       });
     } else if (track.ext === '.jpg' || track.ext === '.jpeg' || track.ext === '.png' || track.ext === '.webp' ) {
       fatherFolder.push({
         type: 'image',
         hash: track.hash,
         title: track.title,
-        workTitle
+        workTitle,
+        mediaStreamUrl,
+        mediaDownloadUrl
+      });
+    } else if (track.ext === '.pdf') {
+      fatherFolder.push({
+        type: 'other',
+        hash: track.hash,
+        title: track.title,
+        workTitle,
+        mediaStreamUrl,
+        mediaDownloadUrl
       });
     } else {
       fatherFolder.push({
-        type: 'file',
+        type: 'audio',
         hash: track.hash,
         title: track.title,
-        workTitle
+        workTitle,
+        mediaStreamUrl,
+        mediaDownloadUrl
       });
     }
   });
@@ -114,7 +153,7 @@ const toTree = (tracks, workTitle) => {
  * 音声文件夹对象 { relativePath: '相对路径', rootFolderName: '根文件夹别名', id: '音声ID' }
  * @param {Object} rootFolder 根文件夹对象 { name: '别名', path: '绝对路径' }
  */
-async function* getFolderList(rootFolder, current = '', depth = 0) { // 异步生成器函数 async function*() {}
+async function* getFolderList(rootFolder, current = '', depth = 0, callback = function addMainLog(){} ) { // 异步生成器函数 async function*() {}
   // 浅层遍历
   const folders = await fs.promises.readdir(path.join(rootFolder.path, current));    
 
@@ -122,15 +161,29 @@ async function* getFolderList(rootFolder, current = '', depth = 0) { // 异步�
     const absolutePath = path.resolve(rootFolder.path, current, folder);
     const relativePath = path.join(current, folder);
 
+    try {
     // eslint-disable-next-line no-await-in-loop
-    if ((await fs.promises.stat(absolutePath)).isDirectory()) { // 检查是否为文件夹
-      if (folder.match(/RJ\d{6}/)) { // 检查文件夹名称中是否含有RJ号
-        // Found a work folder, don't go any deeper.
-        yield { absolutePath, relativePath, rootFolderName: rootFolder.name, id: parseInt(folder.match(/RJ(\d{6})/)[1]) };
-      } else if (depth + 1 < config.scannerMaxRecursionDepth) {
-        // 若文件夹名称中不含有RJ号，就进入该文件夹内部
-        // Found a folder that's not a work folder, go inside if allowed.
-        yield* getFolderList(rootFolder, relativePath, depth + 1);
+      if ((await fs.promises.stat(absolutePath)).isDirectory()) { // 检查是否为文件夹
+          if (folder.match(/RJ\d{6}/)) { // 检查文件夹名称中是否含有RJ号
+            // Found a work folder, don't go any deeper.
+            yield { absolutePath, relativePath, rootFolderName: rootFolder.name, id: parseInt(folder.match(/RJ(\d{6})/)[1]) };
+          } else if (depth + 1 < config.scannerMaxRecursionDepth) {
+            // 若文件夹名称中不含有RJ号，就进入该文件夹内部
+            // Found a folder that's not a work folder, go inside if allowed.
+            yield* getFolderList(rootFolder, relativePath, depth + 1);
+          }
+        }
+    } catch (err) {
+      if (err.code === 'EPERM') {
+        if (err.path && !err.path.endsWith('System Volume Information')) {
+          console.log(' ! 无法访问', err.path)
+          callback({
+            level: 'info',
+            message: ` ! 无法访问 ${err.path}`
+          })
+        }
+      } else {
+        throw err
       }
     }
   }
