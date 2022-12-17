@@ -13,6 +13,26 @@ const { nameToUUID } = require('../scraper/utils');
 const { config } = require('../config');
 const { updateLock } = require('../upgrade');
 
+function getAllFiles(filePath) {
+  let allFilePaths = [];
+  if (fs.existsSync(filePath)) {
+      const files = fs.readdirSync(filePath);
+      for (let i = 0; i < files.length; i++) {
+          let file = files[i]; // 文件名称（不包含文件路径）
+          let currentFilePath = filePath + '/' + file;
+          let stats = fs.lstatSync(currentFilePath);
+          if (stats.isDirectory()) {
+              allFilePaths = allFilePaths.concat(getAllFiles(currentFilePath));
+          } else {
+             allFilePaths.push(currentFilePath);
+          }
+      }
+  } else {
+      console.warn(`指定的目录${filePath}不存在！`);
+  }
+
+  return allFilePaths;
+}
 // 只有在子进程中 process 对象才有 send() 方法
 process.send = process.send || function () {};
 
@@ -155,8 +175,13 @@ const uniqueArr = (arr) => {
  * @param {string} dir 音声文件夹相对路径
  * @param {string} tagLanguage 标签语言，'ja-jp', 'zh-tw' or 'zh-cn'，默认'zh-cn'
  */
-const getMetadata = (id, rootFolderName, dir, tagLanguage) => {
-  const rjcode = (`000000${id}`).slice(-6); // zero-pad to 6 digits
+const getMetadata = (id, rootFolderName, dir, tagLanguage, absolutePath) => {
+  let rjcode ;
+  if (id>=1000000) {
+    rjcode = (`00000000${id}`).slice(-8);
+  } else {
+    rjcode = (`000000${id}`).slice(-6);
+  }
   console.log(` -> [RJ${rjcode}] 从 DLSite 抓取元数据...`);
   addLogForTask(rjcode, {
     level: 'info',
@@ -174,6 +199,16 @@ const getMetadata = (id, rootFolderName, dir, tagLanguage) => {
       
       metadata.rootFolderName = rootFolderName;
       metadata.dir = dir;
+      fs.statSync(absolutePath).mtime;
+      metadata.created_at = fs.statSync(path.resolve(process.cwd(), config.rootFolders.find(rootFolder => rootFolder.name === rootFolderName).path + '/' + dir)).ctime;
+      let allFiles = getAllFiles(path.resolve(process.cwd(), config.rootFolders.find(rootFolder => rootFolder.name === rootFolderName).path + '/' + dir));
+      metadata.lrc = true;
+      for (let i = 0; i < allFiles.length; i++) {
+        if(allFiles[i].search(".lrc") != -1){
+          console.log(allFiles[i].search(".lrc"));
+          metadata.lrc = false;
+        }
+      }
       return db.insertWorkMetadata(metadata)
         .then(() => {
           console.log(` -> [RJ${rjcode}] 元数据成功添加到数据库.`);
@@ -212,9 +247,19 @@ const getMetadata = (id, rootFolderName, dir, tagLanguage) => {
  * @param {Array} types img types: ['main', 'sam', 'sam@2x', 'sam@3x', '240x240', '360x360']
  */
 const getCoverImage = (id, types) => {
-  const rjcode = (`000000${id}`).slice(-6); // zero-pad to 6 digits
+  let rjcode ;
+  if (id>=1000000) {
+    rjcode = (`00000000${id}`).slice(-8);
+  } else {
+    rjcode = (`000000${id}`).slice(-6);
+  }
   const id2 = (id % 1000 === 0) ? id : parseInt(id / 1000) * 1000 + 1000;
-  const rjcode2 = (`000000${id2}`).slice(-6); // zero-pad to 6 digits
+  let rjcode2 ;
+  if (id>=1000000) {
+    rjcode2 = (`00000000${id2}`).slice(-8);
+  } else {
+    rjcode2 = (`000000${id2}`).slice(-6);
+  }
   const promises = [];
   types.forEach(type => {
     let url = `https://img.dlsite.jp/modpub/images2/work/doujin/RJ${rjcode2}/RJ${rjcode}_img_${type}.jpg`;
@@ -276,7 +321,12 @@ const processFolder = (folder) => db.knex('t_work')
   .count()
   .first()
   .then((res) => {
-    const rjcode = (`000000${folder.id}`).slice(-6); // zero-pad to 6 digits
+  let rjcode ;
+  if (folder.id>=1000000) {
+    rjcode = (`00000000${folder.id}`).slice(-8);
+  } else {
+    rjcode = (`000000${folder.id}`).slice(-6);
+  }
     const coverTypes = ['main', 'sam', '240x240'];
     const count = res['count(*)'];
     if (count) { // 查询数据库，检查是否已经写入该音声的元数据
@@ -310,7 +360,7 @@ const processFolder = (folder) => db.knex('t_work')
         message: `发现新文件夹: "${folder.absolutePath}"`
       });
       
-      return getMetadata(folder.id, folder.rootFolderName, folder.relativePath, config.tagLanguage) // 获取元数据
+      return getMetadata(folder.id, folder.rootFolderName, folder.relativePath, config.tagLanguage, folder.absolutePath) // 获取元数据
         .then((result) => {
           if (result === 'failed') { // 如果获取元数据失败，跳过封面图片下载
             return 'failed';
@@ -344,7 +394,12 @@ const performCleanup = async () => {
     if (!rootFolder || !fs.existsSync(path.join(rootFolder.path, work.dir))) {
       db.removeWork(work.id, trxProvider) // 将其数据项从数据库中移除
         .then((result) => { // 然后删除其封面图片
-          const rjcode = (`000000${work.id}`).slice(-6); // zero-pad to 6 digits
+          let rjcode ;
+          if (work.id>=1000000) {
+            rjcode = (`00000000${work.id}`).slice(-8);
+          } else {
+            rjcode = (`000000${work.id}`).slice(-6);
+          }
           deleteCoverImageFromDisk(rjcode)    
             .catch((err) => {
               if (err && err.code !== 'ENOENT') { 
@@ -498,7 +553,12 @@ const performScan = () => {
             const addedFolder = uniqueFolderList.find(folder => folder.id === parseInt(key));
             duplicate[key].push(addedFolder); // 最后一项为将要添加到数据库中的音声文件夹
 
-            const rjcode = (`000000${key}`).slice(-6); // zero-pad to 6 digits
+          let rjcode ;
+          if (key>=1000000) {
+            rjcode = (`00000000${key}`).slice(-8);
+          } else {
+            rjcode = (`000000${key}`).slice(-6);
+          }
             console.log(` -> [RJ${rjcode}] 存在多个文件夹:`);
             addMainLog({
               level: 'info',
@@ -523,7 +583,12 @@ const performScan = () => {
         const promises = uniqueFolderList.map((folder) => 
           processFolderLimited(folder)
             .then((result) => { // 统计处理结果
-              const rjcode = (`000000${folder.id}`).slice(-6); // zero-pad to 6 digits\
+          let rjcode ;
+          if (folder.id>=1000000) {
+            rjcode = (`00000000${folder.id}`).slice(-8);
+          } else {
+            rjcode = (`000000${folder.id}`).slice(-6);
+          }
               counts[result] += 1;
 
               if (result === 'added') {
@@ -592,20 +657,34 @@ const performScan = () => {
  * @param {number} id work id
  * @param {options = {}} options includeVA, includeTags
  */
-const updateMetadata = (id, options = {}) => {
+const updateMetadata = (id, rootFolderName, dir, options = {}) => {
   let scrapeProcessor = () => scrapeDynamicWorkMetadataFromDLsite(id);
   if (options.includeVA || options.includeTags || options.includeNSFW || options.refreshAll) {
     // static + dynamic
     scrapeProcessor = () => scrapeWorkMetadataFromDLsite(id, config.tagLanguage);
   }
 
-  const rjcode = (`000000${id}`).slice(-6); // zero-pad to 6 digits
+  let rjcode ;
+  if (id>=1000000) {
+    rjcode = (`00000000${id}`).slice(-8);
+  } else {
+    rjcode = (`000000${id}`).slice(-6);
+  }
   addTask(rjcode); // addTask only accepts a string
   return scrapeProcessor() // 抓取该音声的元数据
     .then((metadata) => {
       // 将抓取到的元数据插入到数据库
       emitTaskLog(` -> [RJ${rjcode}] 元数据抓取成功，准备更新元数据...`, rjcode);
       metadata.id = id;
+      //metadata.created_at = fs.statSync(path.resolve(process.cwd(), config.rootFolders.find(rootFolder => rootFolder.name === rootFolderName).path + '/' + dir)).ctime;
+      let allFiles = getAllFiles(path.resolve(process.cwd(), config.rootFolders.find(rootFolder => rootFolder.name === rootFolderName).path + '/' + dir));
+      metadata.lrc = true;
+      for (let i = 0; i < allFiles.length; i++) {
+        if(allFiles[i].search(".lrc") != -1){
+          metadata.lrc = false;
+          console.log(allFiles[i]);
+        }
+      }
       return db.updateWorkMetadata(metadata, options)
         .then(() => {
           emitTaskLog(` -> [RJ${rjcode}] 元数据更新成功`, rjcode);
@@ -618,13 +697,13 @@ const updateMetadata = (id, options = {}) => {
     });
 };
 
-const updateMetadataLimited = (id, options = null) => limitP.call(updateMetadata, id, options);
+const updateMetadataLimited = (id, rootFolderName, dir, options = null) => limitP.call(updateMetadata, id, rootFolderName, dir, options);
 const updateVoiceActorLimited = (id) => limitP.call(updateMetadata, id, { includeVA: true });
 
 // eslint-disable-next-line no-unused-vars
 const performUpdate = async (options = null) => {
-  const baseQuery = db.knex('t_work').select('id');
-  const processor = (id) => updateMetadataLimited(id, options);
+  const baseQuery = db.knex('t_work').select('id', 'root_folder', 'dir');
+  const processor = (id, rootFolderName, dir) => updateMetadataLimited(id, rootFolderName, dir, options);
 
   const counts = await refreshWorks(baseQuery, 'id', processor);
 
@@ -662,8 +741,19 @@ const refreshWorks = async (query, idColumnName, processor) => {
 
     const promises = works.map((work) => {
       const workid = work[idColumnName];
-      const rjcode = (`000000${workid}`).slice(-6);
-      return processor(workid)
+      const rootFolderName = work['root_folder'];
+      const dir = work['dir'];
+      // addMainLog({
+      //   level: 'info',
+      //   message: `共 ${rootFolderName} 个作品. 开始刷新`
+      // });
+      let rjcode ;
+      if (workid>=1000000) {
+        rjcode = (`00000000${workid}`).slice(-8);
+      } else {
+        rjcode = (`000000${workid}`).slice(-6);
+      }
+      return processor(workid, rootFolderName, dir)
         .then((result) => { // 统计处理结果
           result === 'failed' ? counts['failed'] += 1 : counts['updated'] += 1;
           tasks.find(task => task.rjcode === rjcode).result = result;

@@ -29,8 +29,9 @@ const insertWorkMetadata = work => knex.transaction(trx => trx.raw(
       title: work.title,
       circle_id: work.circle.id,
       nsfw: work.nsfw,
+      lrc: work.lrc,
       release: work.release,
-
+      created_at: work.created_at,
       dl_count: work.dl_count,
       price: work.price,
       review_count: work.review_count,
@@ -90,6 +91,8 @@ const updateWorkMetadata = (work, options = {}) => knex.transaction(async (trx) 
       price: work.price,
       review_count: work.review_count,
       rate_count: work.rate_count,
+      created_at: work.created_at,
+      lrc: work.lrc,
       rate_average_2dp: work.rate_average_2dp,
       rate_count_detail: JSON.stringify(work.rate_count_detail),
       rank: work.rank ? JSON.stringify(work.rank) : null,
@@ -122,6 +125,8 @@ const updateWorkMetadata = (work, options = {}) => knex.transaction(async (trx) 
   }
 
   if (options.refreshAll) {
+    // if(work.nsfw)
+    //   console.log('true');
     await trx('t_work')
     .where('id', '=', work.id)
     .update({

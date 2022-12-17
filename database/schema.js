@@ -16,7 +16,8 @@ const createSchema = () => knex.schema
     table.integer('circle_id').notNullable(); // INTEGER 类型 [社团id]
     table.boolean('nsfw'); // BOOLEAN 类型
     table.string('release');  // VARCHAR 类型 [贩卖日 (YYYY-MM-DD)]
-
+    table.dateTime('created_at')
+    table.boolean('lrc'),
     table.integer('dl_count'); // INTEGER 类型 [售出数]
     table.integer('price'); // INTEGER 类型 [价格]
     table.integer('review_count'); // INTEGER 类型 [评论数量]
@@ -85,6 +86,8 @@ const createSchema = () => knex.schema
           t_work.release,
           t_work.dl_count,
           t_work.price,
+          t_work.created_at,
+          t_work.lrc,
           t_work.review_count,
           t_work.rate_count,
           t_work.rate_average_2dp,
