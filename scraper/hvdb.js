@@ -12,7 +12,7 @@ const scrapeWorkMetadataFromHVDB = id => new Promise((resolve, reject) => {
   if (id>=1000000) {
     rjcode = (`00000000${id}`).slice(-8);
   } else {
-    rjcode = (`00000000${id}`).slice(-6);
+    rjcode = (`000000${id}`).slice(-6);
   }
   const url = `https://hvdb.me/Dashboard/WorkDetails/${id}`;
 
