@@ -7,7 +7,7 @@ FROM node:14-alpine as build-dep
 # Create app directory
 WORKDIR /usr/src/kikoeru
 
-RUN apk update && apk add python make gcc g++ 
+RUN apk update && apk add python3 make gcc g++ 
 
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
